@@ -62,8 +62,7 @@ void ArtWindow::OnDestroy()
 
 void ArtWindow::OnPaint(HDC dc)
 {
-	CPaintDC hdc(*this);
-	renderer->Render(hdc); // Using dc here doesn't work for some reason
+	renderer->Render();
 }
 
 void ArtWindow::OnSize(UINT nType, CSize size)

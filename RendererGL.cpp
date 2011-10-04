@@ -142,16 +142,6 @@ void RendererGL::CreateContext()
 	glClearColor(0.0f, 0.0f, 0.0f, 10.0f);
 
 	Resize(width, height);
-
-/*
-	glViewport(0, 0, width, height);
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluPerspective(90.f, 1.f, 1.f, 500.f);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();*/
 }
 
 void RendererGL::Destroy()
@@ -191,10 +181,8 @@ void RendererGL::Resize(int w, int h)
 	glLoadIdentity();
 }
 
-void RendererGL::Render(HDC dc)
+void RendererGL::Render()
 {
-	wglMakeCurrent(dc, hRC);
-
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glPushMatrix();

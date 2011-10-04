@@ -8,7 +8,7 @@ public:
 	RendererGL(HDC hdc, RECT& rc);
 	~RendererGL();
 
-	void Render(HDC dc);
+	void Render();
 	void Resize(int w, int h);
 	void Destroy();
 	void Recreate(HDC n_hdc, RECT& n_rc);
