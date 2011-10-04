@@ -62,7 +62,7 @@ BOOL RendererGL::SetupPixelFormat()
 		WGL_DEPTH_BITS_ARB, 24,
 		WGL_ACCUM_BITS_ARB, 64,
 		WGL_STENCIL_BITS_ARB, 0,
-		0,        //End
+		0, //End
 	};
 
 	int pixelFormat;
@@ -175,19 +175,21 @@ void RendererGL::Resize(int w, int h)
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(80.0f, aspect, 0.1f, 500.0f);
+	gluPerspective(80.0f, aspect, 0.1f, 1000.0f);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 }
 
-void RendererGL::Render()
+void RendererGL::Render(CDC dc)
 {
+	wglMakeCurrent(dc, hRC);
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glPushMatrix();
 
-	glTranslatef(0.f, 0.f, -200.f);
+	glTranslatef(0.f, 0.f, -180.f);
 
 	LARGE_INTEGER tick;
 	QueryPerformanceCounter(&tick);
@@ -244,9 +246,9 @@ void RendererGL::Render()
 
 	glFinish();
 
-	//glAccum(GL_ACCUM, 1.f);
-	//glAccum(GL_RETURN, 1.f);
-	//glAccum(GL_MULT, 0.95f);
+	glAccum(GL_ACCUM, 1.f);
+	glAccum(GL_RETURN, 1.f);
+	glAccum(GL_MULT, 0.95f);
 
 	SwapBuffers(wglGetCurrentDC());
 

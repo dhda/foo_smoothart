@@ -58,11 +58,16 @@ void ArtWindow::OnDestroy()
 		DeleteTimerQueueTimer(TimerQueue, RepaintTimer, INVALID_HANDLE_VALUE);
 	if (TimerQueue)
 		DeleteTimerQueue(TimerQueue);
+
+	// Does this do anything?
+	RepaintTimer = NULL;
+	TimerQueue = NULL;
 }
 
 void ArtWindow::OnPaint(HDC dc)
 {
-	renderer->Render();
+	CPaintDC cdc(*this);
+	renderer->Render(cdc);
 }
 
 void ArtWindow::OnSize(UINT nType, CSize size)
