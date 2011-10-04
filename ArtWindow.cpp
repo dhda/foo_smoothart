@@ -16,6 +16,7 @@ ArtWindow::ArtWindow()
 	if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) != TIMERR_NOERROR) 
 	{
 		console::error("Smooth Album Art: Timer error");
+		// TODO: handle error
 	}
 
 	wTimerRes = min(max(tc.wPeriodMin, 1), tc.wPeriodMax);
@@ -30,8 +31,6 @@ ArtWindow::~ArtWindow() {}
 
 LRESULT ArtWindow::OnCreate(LPCREATESTRUCT)
 {
-	console::print("Smooth Album Art: OnCreate");
-
 	RECT rc;
 	GetClientRect(&rc);
 	renderer = new RendererGL(GetDC(), rc);
@@ -52,8 +51,6 @@ LRESULT ArtWindow::OnCreate(LPCREATESTRUCT)
 
 void ArtWindow::OnDestroy()
 {
-	console::print("Smooth Album Art: OnDestroy");
-
 	delete renderer;
 	//KillTimer(TIMER_REPAINT);
 
@@ -71,12 +68,7 @@ void ArtWindow::OnPaint(HDC dc)
 
 void ArtWindow::OnSize(UINT nType, CSize size)
 {
-	//console::formatter() << "OnSize: (" << size.cx << "," << size.cy << ")";
-
-	renderer->Destroy();
-	RECT rc;
-	GetClientRect(&rc);
-	renderer->Recreate(GetDC(), rc);
+	renderer->Resize(size.cx, size.cy);
 
 	repaint();
 }

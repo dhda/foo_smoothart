@@ -19,6 +19,7 @@ private:
 	HGLRC hRC;
 
 	BOOL SetupPixelFormat();
+	BOOL SetupPixelFormatFallback(HDC dc);
 	void CreateContext();
 
 	LARGE_INTEGER prevTime, frameTime;

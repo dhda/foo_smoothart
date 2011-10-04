@@ -4,6 +4,31 @@
 
 RendererGL::RendererGL(HDC hdc, RECT& rc) : Renderer(hdc, rc)
 {
+	// Create temporary window and context for GLEW initialization, then destroy it
+	HWND dummyWindow = CreateWindowEx(0, L"Static", L"", 0, 0, 0, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, NULL);
+	ShowWindow(dummyWindow, SW_HIDE);
+	HDC dummyDC = GetDC(dummyWindow);
+
+	if (!SetupPixelFormatFallback(dummyDC))
+		return;
+	
+	hRC = wglCreateContext(dummyDC);
+	wglMakeCurrent(dummyDC, hRC);
+
+	GLenum err = glewInit();
+	if (GLEW_OK != err)
+	{
+		console::formatter() << "Smooth Album Art: GLEW Error: " << (char *)glewGetErrorString(err);
+		// TODO: Handle error
+	}
+	console::formatter() << "Smooth Album Art: Using GLEW " << (char *)glewGetString(GLEW_VERSION);
+
+	wglMakeCurrent(dummyDC, NULL);
+	wglDeleteContext(hRC);
+	DestroyWindow(dummyWindow);
+
+
+	// Create the actual context
 	Recreate(hdc, rc);
 }
 
@@ -12,11 +37,53 @@ RendererGL::~RendererGL()
 	Destroy();
 }
 
+
 BOOL RendererGL::SetupPixelFormat()
+{
+	int multisampling = GL_TRUE;
+	int samples = 8;
+	if (!WGLEW_ARB_multisample)
+	{
+		console::print("Smooth Album Art: Multisampling is not supported");
+		multisampling = GL_FALSE;
+		samples = 0;
+	}
+
+	const int attribList[] =
+	{
+		WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+		WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+		WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+		WGL_SAMPLE_BUFFERS_ARB, multisampling,
+		WGL_SAMPLES_ARB, samples,
+		WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+		WGL_COLOR_BITS_ARB, 32,
+		WGL_ALPHA_BITS_ARB, 8,
+		WGL_DEPTH_BITS_ARB, 24,
+		WGL_ACCUM_BITS_ARB, 64,
+		WGL_STENCIL_BITS_ARB, 0,
+		0,        //End
+	};
+
+	int pixelFormat;
+	UINT numFormats;
+	wglChoosePixelFormatARB(hdc, attribList, NULL, 1, &pixelFormat, &numFormats);
+
+	PIXELFORMATDESCRIPTOR pfd;
+	DescribePixelFormat(hdc, pixelFormat, sizeof(pfd), &pfd);
+	if (!SetPixelFormat(hdc, pixelFormat, &pfd))
+	{
+		console::error("Smooth Album Art: Error setting pixel format");
+		return FALSE;
+	}
+
+	return TRUE;
+}
+BOOL RendererGL::SetupPixelFormatFallback(HDC dc)
 {
 	static PIXELFORMATDESCRIPTOR pfd =
 	{
-		sizeof(PIXELFORMATDESCRIPTOR),   // size of this pfd
+		sizeof(PIXELFORMATDESCRIPTOR),
 		1,                           // version number
 		PFD_DRAW_TO_WINDOW |         // support window
 		PFD_SUPPORT_OPENGL |         // support OpenGL
@@ -24,7 +91,7 @@ BOOL RendererGL::SetupPixelFormat()
 		PFD_TYPE_RGBA,               // RGBA type
 		24,                          // 24-bit color depth
 		0, 0, 0, 0, 0, 0,            // color bits ignored
-		0,                           // no alpha buffer
+		8,                           // no alpha buffer
 		0,                           // shift bit ignored
 		64,                          // no accumulation buffer
 		16, 16, 16, 16,              // accum bits ignored
@@ -38,13 +105,13 @@ BOOL RendererGL::SetupPixelFormat()
 
 	int pixelformat;
 
-	if ((pixelformat = ChoosePixelFormat(hdc, &pfd)) == 0)
+	if ((pixelformat = ChoosePixelFormat(dc, &pfd)) == 0)
 	{
 		ATLASSERT(FALSE);
 		return FALSE;
 	}
 
-	if (SetPixelFormat(hdc, pixelformat, &pfd) == FALSE)
+	if (SetPixelFormat(dc, pixelformat, &pfd) == FALSE)
 	{
 		ATLASSERT(FALSE);
 		return FALSE;
@@ -55,15 +122,11 @@ BOOL RendererGL::SetupPixelFormat()
 
 void RendererGL::CreateContext()
 {
-	PIXELFORMATDESCRIPTOR pfd;
 	if (!SetupPixelFormat())
 		return;
-
-	int n = GetPixelFormat(hdc);
-	DescribePixelFormat(hdc, n, sizeof(pfd), &pfd);
+	
 	hRC = wglCreateContext(hdc);
 	wglMakeCurrent(hdc, hRC);
-
 
 	int width = rc.right - rc.left;
 	int height = rc.bottom - rc.top;
@@ -72,7 +135,9 @@ void RendererGL::CreateContext()
 	glDepthMask(GL_TRUE);
 
 	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
+	//glCullFace(GL_BACK);
+
+	glEnable(GL_MULTISAMPLE_ARB);
 
 	glClearColor(0.0f, 0.0f, 0.0f, 10.0f);
 
@@ -91,7 +156,7 @@ void RendererGL::CreateContext()
 
 void RendererGL::Destroy()
 {
-	wglMakeCurrent(NULL, NULL);
+	wglMakeCurrent(hdc, NULL);
 	if (hRC)
 	{
 		wglDeleteContext(hRC);
@@ -140,8 +205,8 @@ void RendererGL::Render(HDC dc)
 	QueryPerformanceCounter(&tick);
 
 	glRotatef((GLfloat)tick.QuadPart / 20000.f, 1.f, 0.f, 0.f);
-	glRotatef((GLfloat)tick.QuadPart / 30000.f, 0.f, 1.f, 0.f);
-	glRotatef((GLfloat)tick.QuadPart / 40000.f, 0.f, 0.f, 1.f);
+	glRotatef((GLfloat)tick.QuadPart / 40000.f, 0.f, 1.f, 0.f);
+	glRotatef((GLfloat)tick.QuadPart / 50000.f, 0.f, 0.f, 1.f);
 
 	glBegin(GL_QUADS);
 		// Back
@@ -191,17 +256,17 @@ void RendererGL::Render(HDC dc)
 
 	glFinish();
 
-	glAccum(GL_ACCUM, 1.f);
-	glAccum(GL_RETURN, 1.f);
-	glAccum(GL_MULT, 0.95f);
+	//glAccum(GL_ACCUM, 1.f);
+	//glAccum(GL_RETURN, 1.f);
+	//glAccum(GL_MULT, 0.95f);
 
 	SwapBuffers(wglGetCurrentDC());
 
-	QueryPerformanceCounter(&tick);
+	/*QueryPerformanceCounter(&tick);
 	frameTime.QuadPart = tick.QuadPart - prevTime.QuadPart;
 	prevTime = tick;
 
-	console::formatter() << "Frame Time = " << getFrameTime();
+	console::formatter() << "Frame Time = " << getFrameTime();*/
 }
 
 double RendererGL::getFrameTime()
