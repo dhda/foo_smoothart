@@ -2,11 +2,11 @@
 #include "ArtWindow.h"
 
 
-struct SmoothArt_DUI : ui_element_instance, ArtWindow
+struct SmoothArtUIE : ui_element, ui_element_instance, ArtWindow
 {
 public:
-	SmoothArt_DUI(ui_element_config::ptr cfg, ui_element_instance_callback_ptr callback);
-	~SmoothArt_DUI();
+	SmoothArtUIE(ui_element_config::ptr cfg, ui_element_instance_callback_ptr callback);
+	~SmoothArtUIE();
 
 	static GUID g_get_guid() { return s_guid; }
 	static GUID g_get_subclass() { return ui_element_subclass_utility; }

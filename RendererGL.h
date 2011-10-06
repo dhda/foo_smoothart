@@ -8,6 +8,8 @@ public:
 	RendererGL(HDC hdc, RECT& rc);
 	~RendererGL();
 
+	static void Initialize();
+
 	void Render(CDC dc);
 	void Resize(int w, int h);
 	void Destroy();
@@ -18,8 +20,10 @@ public:
 private:
 	HGLRC hRC;
 
-	BOOL SetupPixelFormat();
-	BOOL SetupPixelFormatFallback(HDC dc);
+	static bool glew;
+
+	bool SetupPixelFormat();
+	static bool SetupPixelFormatFallback(HDC dc);
 	void CreateContext();
 
 	LARGE_INTEGER prevTime, frameTime;

@@ -4,31 +4,6 @@
 
 RendererGL::RendererGL(HDC hdc, RECT& rc) : Renderer(hdc, rc)
 {
-	// Create temporary window and context for GLEW initialization, then destroy it
-	HWND dummyWindow = CreateWindowEx(0, L"Static", L"", 0, 0, 0, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, NULL);
-	ShowWindow(dummyWindow, SW_HIDE);
-	HDC dummyDC = GetDC(dummyWindow);
-
-	if (!SetupPixelFormatFallback(dummyDC))
-		return;
-	
-	hRC = wglCreateContext(dummyDC);
-	wglMakeCurrent(dummyDC, hRC);
-
-	GLenum err = glewInit();
-	if (GLEW_OK != err)
-	{
-		console::formatter() << "Smooth Album Art: GLEW Error: " << (char *)glewGetErrorString(err);
-		// TODO: Handle error
-	}
-	console::formatter() << "Smooth Album Art: Using GLEW " << (char *)glewGetString(GLEW_VERSION);
-
-	wglMakeCurrent(dummyDC, NULL);
-	wglDeleteContext(hRC);
-	DestroyWindow(dummyWindow);
-
-
-	// Create the actual context
 	Recreate(hdc, rc);
 }
 
@@ -38,7 +13,45 @@ RendererGL::~RendererGL()
 }
 
 
-BOOL RendererGL::SetupPixelFormat()
+bool RendererGL::glew = false;
+void RendererGL::Initialize()
+{
+	// Create temporary window and context for GLEW initialization, then destroy it
+	HWND dummyWindow = CreateWindowEx(0, L"Static", L"", 0, 0, 0, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, NULL);
+	ShowWindow(dummyWindow, SW_HIDE);
+	HDC dummyDC = GetDC(dummyWindow);
+
+	if (!SetupPixelFormatFallback(dummyDC))
+	{
+		console::error("Smooth Album Art: Total failure");
+		return;
+	}
+
+	HGLRC tempRC;
+
+	tempRC = wglCreateContext(dummyDC);
+	wglMakeCurrent(dummyDC, tempRC);
+
+	GLenum err = glewInit();
+	if (err != GLEW_OK)
+	{
+		//console::formatter() << "Smooth Album Art: GLEW Error: " << (char *)glewGetErrorString(err);
+		console::formatter() << "Smooth Album Art: Using OpenGL without GLEW";
+		glew = false;
+	}
+	else
+	{
+		console::formatter() << "Smooth Album Art: Using OpenGL with GLEW " << (char *)glewGetString(GLEW_VERSION);
+		glew = true;
+	}
+
+	wglMakeCurrent(dummyDC, NULL);
+	wglDeleteContext(tempRC);
+	DestroyWindow(dummyWindow);
+}
+
+
+bool RendererGL::SetupPixelFormat()
 {
 	int multisampling = GL_TRUE;
 	int samples = 8;
@@ -72,14 +85,11 @@ BOOL RendererGL::SetupPixelFormat()
 	PIXELFORMATDESCRIPTOR pfd;
 	DescribePixelFormat(hdc, pixelFormat, sizeof(pfd), &pfd);
 	if (!SetPixelFormat(hdc, pixelFormat, &pfd))
-	{
-		console::error("Smooth Album Art: Error setting pixel format");
-		return FALSE;
-	}
+		return false;
 
-	return TRUE;
+	return true;
 }
-BOOL RendererGL::SetupPixelFormatFallback(HDC dc)
+bool RendererGL::SetupPixelFormatFallback(HDC dc)
 {
 	static PIXELFORMATDESCRIPTOR pfd =
 	{
@@ -106,24 +116,27 @@ BOOL RendererGL::SetupPixelFormatFallback(HDC dc)
 	int pixelformat;
 
 	if ((pixelformat = ChoosePixelFormat(dc, &pfd)) == 0)
-	{
-		ATLASSERT(FALSE);
-		return FALSE;
-	}
+		return false;
 
 	if (SetPixelFormat(dc, pixelformat, &pfd) == FALSE)
-	{
-		ATLASSERT(FALSE);
-		return FALSE;
-	}
+		return false;
 
-	return TRUE;
+	return true;
 }
 
 void RendererGL::CreateContext()
 {
-	if (!SetupPixelFormat())
+	bool setup;
+	if (glew)
+		setup = SetupPixelFormat();
+	else
+		setup = SetupPixelFormatFallback(hdc);
+	
+	if (!setup)
+	{
+		console::error("Smooth Album Art: Couldn't set pixel format");
 		return;
+	}
 	
 	hRC = wglCreateContext(hdc);
 	wglMakeCurrent(hdc, hRC);
