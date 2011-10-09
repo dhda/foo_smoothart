@@ -1,10 +1,20 @@
 #include "stdafx.h"
 #include "RendererGL.h"
+#include <cmath>
+
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
 
 
 RendererGL::RendererGL(HDC hdc, RECT& rc) : Renderer(hdc, rc)
 {
 	Recreate(hdc, rc);
+	
+	art_loader = static_api_ptr_t<album_art_manager>()->instantiate();
+	playlist = static_api_ptr_t<playlist_manager>();
+
+	image_texture = 0;
+	prev_image_texture = 0;
 }
 
 RendererGL::~RendererGL()
@@ -14,6 +24,8 @@ RendererGL::~RendererGL()
 
 
 bool RendererGL::glew = false;
+bool RendererGL::initialized = false;
+bool RendererGL::anisotropy = true;
 void RendererGL::Initialize()
 {
 	// Create temporary window and context for GLEW initialization, then destroy it
@@ -37,30 +49,50 @@ void RendererGL::Initialize()
 	{
 		//console::formatter() << "Smooth Album Art: GLEW Error: " << (char *)glewGetErrorString(err);
 		console::formatter() << "Smooth Album Art: Using OpenGL without GLEW";
-		glew = false;
+		RendererGL::glew = false;
 	}
 	else
 	{
 		console::formatter() << "Smooth Album Art: Using OpenGL with GLEW " << (char *)glewGetString(GLEW_VERSION);
-		glew = true;
+		RendererGL::glew = true;
 	}
 
 	wglMakeCurrent(dummyDC, NULL);
 	wglDeleteContext(tempRC);
+	tempRC = NULL;
 	DestroyWindow(dummyWindow);
+
+	ILuint devilError;
+	ilInit();
+	iluInit();
+	devilError = ilGetError();
+
+	if (devilError != IL_NO_ERROR)
+		console::print("Smooth Album Art: DevIL error");
+
+	RendererGL::initialized = true;
 }
 
 
 bool RendererGL::SetupPixelFormat()
 {
 	int multisampling = GL_TRUE;
-	int samples = 8;
+	int samples = 8; //TODO: detect max
+
+	//TODO: Move checks to Initialize()
 	if (!WGLEW_ARB_multisample)
 	{
 		console::print("Smooth Album Art: Multisampling is not supported");
 		multisampling = GL_FALSE;
 		samples = 0;
 	}
+
+	if (!GLEW_EXT_texture_filter_anisotropic)
+	{
+		console::print("Smooth Album Art: Anisotropic filtering is not supported");
+		RendererGL::anisotropy = false;
+	}
+	
 
 	const int attribList[] =
 	{
@@ -80,7 +112,8 @@ bool RendererGL::SetupPixelFormat()
 
 	int pixelFormat;
 	UINT numFormats;
-	wglChoosePixelFormatARB(hdc, attribList, NULL, 1, &pixelFormat, &numFormats);
+	if (!wglChoosePixelFormatARB(hdc, attribList, NULL, 1, &pixelFormat, &numFormats))
+		return false;
 
 	PIXELFORMATDESCRIPTOR pfd;
 	DescribePixelFormat(hdc, pixelFormat, sizeof(pfd), &pfd);
@@ -127,7 +160,7 @@ bool RendererGL::SetupPixelFormatFallback(HDC dc)
 void RendererGL::CreateContext()
 {
 	bool setup;
-	if (glew)
+	if (RendererGL::glew)
 		setup = SetupPixelFormat();
 	else
 		setup = SetupPixelFormatFallback(hdc);
@@ -141,6 +174,10 @@ void RendererGL::CreateContext()
 	hRC = wglCreateContext(hdc);
 	wglMakeCurrent(hdc, hRC);
 
+	maxAnisotropy = 1.0f;
+	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
+	console::formatter() << "Smooth Album Art: Using anisotropy level " << maxAnisotropy;
+
 	int width = rc.right - rc.left;
 	int height = rc.bottom - rc.top;
 
@@ -153,6 +190,10 @@ void RendererGL::CreateContext()
 	glEnable(GL_MULTISAMPLE_ARB);
 
 	glClearColor(0.0f, 0.0f, 0.0f, 10.0f);
+
+	glHint(GL_GENERATE_MIPMAP_HINT, GL_NICEST);
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+	glHint(GL_TEXTURE_COMPRESSION_HINT, GL_NICEST);
 
 	Resize(width, height);
 }
@@ -188,7 +229,7 @@ void RendererGL::Resize(int w, int h)
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(80.0f, aspect, 0.1f, 1000.0f);
+	gluPerspective(40.0f, aspect, 0.1f, 1000.0f);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -198,70 +239,130 @@ void RendererGL::Render(CDC dc)
 {
 	wglMakeCurrent(dc, hRC);
 
+	try
+	{
+		metadb_handle_ptr meta_handle;
+		t_size playing_list, playing_item;
+		if (playlist->get_playing_item_location(&playing_list, &playing_item))
+		{
+			if (playlist->playlist_get_item_handle(meta_handle, playing_list, playing_item))
+			{
+					foobar2000_io::abort_callback_impl abort;
+					if (art_loader->open(meta_handle->get_path(), abort))
+					{
+						art = art_loader->query(album_art_ids::cover_front, abort);
+						console::print("Smooth Album Art: New album art!");
+
+						ILuint devilID, devilError = IL_NO_ERROR;
+
+						ilGenImages(1, &devilID);
+						ilBindImage(devilID);
+
+						ilLoadL(IL_TYPE_UNKNOWN, art->get_ptr(), art->get_size());
+						if (devilError != IL_NO_ERROR)
+							console::print("Smooth Album Art: DevIL error");
+
+						ilutRenderer(ILUT_OPENGL);
+						prev_image_texture = image_texture;
+						image_texture = ilutGLBindTexImage();
+
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -0.5f);
+						glGenerateMipmap(GL_TEXTURE_2D);
+					}
+			}
+
+		}
+	}
+	catch (const exception_album_art_not_found & e)
+	{
+		console::print(e.what());
+	}
+	catch (const pfc::exception & e)
+	{
+		console::print(e.what());
+	}
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glPushMatrix();
 
-	glTranslatef(0.f, 0.f, -180.f);
+	glEnable(GL_TEXTURE_2D);
+
+	glTranslatef(0.f, 0.f, -3.f);
 
 	LARGE_INTEGER tick;
 	QueryPerformanceCounter(&tick);
 
-	glRotatef((GLfloat)tick.QuadPart / 20000.f, 1.f, 0.f, 0.f);
-	glRotatef((GLfloat)tick.QuadPart / 40000.f, 0.f, 1.f, 0.f);
-	glRotatef((GLfloat)tick.QuadPart / 50000.f, 0.f, 0.f, 1.f);
+	//glRotatef((GLfloat)tick.QuadPart / 20000.f, 1.f, 0.f, 0.f);
+	//glRotatef(sin((float)tick.QuadPart / 6000000.f) * 130.f, 0.f, 1.f, 0.f);
+	//glRotatef((GLfloat)tick.QuadPart / 50000.f, 0.f, 0.f, 1.f);
 
+	glBindTexture(GL_TEXTURE_2D, image_texture);
+	glBegin(GL_QUADS);
+		// Front
+		glColor3f(1.f, 1.f, 1.f);
+		glTexCoord2d(1.0,0.0);
+		glVertex3f( 1.f, -1.f, 0.f);
+		glTexCoord2d(1.0,1.0);
+		glVertex3f( 1.f,  1.f, 0.f);
+		glTexCoord2d(0.0,1.0);
+		glVertex3f(-1.f,  1.f, 0.f);
+		glTexCoord2d(0.0,0.0);
+		glVertex3f(-1.f, -1.f, 0.f);
+
+		//// Left
+		//glColor3f(0.f, 1.f, 0.f);
+		//glVertex3f(-50.f, -50.f,  50.f);
+		//glVertex3f(-50.f,  50.f,  50.f);
+		//glVertex3f(-50.f,  50.f, -50.f);
+		//glVertex3f(-50.f, -50.f, -50.f);
+
+		//// Right
+		//glColor3f(0.f, 1.f, 0.f);
+		//glVertex3f(50.f, -50.f, -50.f);
+		//glVertex3f(50.f,  50.f, -50.f);
+		//glVertex3f(50.f,  50.f,  50.f);
+		//glVertex3f(50.f, -50.f,  50.f);
+
+		//// Top
+		//glColor3f(0.f, 0.f, 1.f);
+		//glVertex3f(-50.f, -50.f,  50.f);
+		//glVertex3f(-50.f, -50.f, -50.f);
+		//glVertex3f( 50.f, -50.f, -50.f);
+		//glVertex3f( 50.f, -50.f,  50.f);
+
+		//// Bottom
+		//glColor3f(0.f, 0.f, 1.f);
+		//glVertex3f(-50.f, 50.f,  50.f);
+		//glVertex3f( 50.f, 50.f,  50.f);
+		//glVertex3f( 50.f, 50.f, -50.f);
+		//glVertex3f(-50.f, 50.f, -50.f);
+	glEnd();
+
+	glBindTexture(GL_TEXTURE_2D, prev_image_texture);
 	glBegin(GL_QUADS);
 		// Back
-		glColor3f(1.f, 0.f, 0.f);
-		glVertex3f(-50.f, -50.f, -50.f);
-		glVertex3f(-50.f,  50.f, -50.f);
-		glVertex3f( 50.f,  50.f, -50.f);
-		glVertex3f( 50.f, -50.f, -50.f);
-
-		// Front
-		glColor3f(1.f, 0.f, 0.f);
-		glVertex3f( 50.f, -50.f, 50.f);
-		glVertex3f( 50.f,  50.f, 50.f);
-		glVertex3f(-50.f,  50.f, 50.f);
-		glVertex3f(-50.f, -50.f, 50.f);
-
-		// Left
-		glColor3f(0.f, 1.f, 0.f);
-		glVertex3f(-50.f, -50.f,  50.f);
-		glVertex3f(-50.f,  50.f,  50.f);
-		glVertex3f(-50.f,  50.f, -50.f);
-		glVertex3f(-50.f, -50.f, -50.f);
-
-		// Right
-		glColor3f(0.f, 1.f, 0.f);
-		glVertex3f(50.f, -50.f, -50.f);
-		glVertex3f(50.f,  50.f, -50.f);
-		glVertex3f(50.f,  50.f,  50.f);
-		glVertex3f(50.f, -50.f,  50.f);
-
-		// Top
-		glColor3f(0.f, 0.f, 1.f);
-		glVertex3f(-50.f, -50.f,  50.f);
-		glVertex3f(-50.f, -50.f, -50.f);
-		glVertex3f( 50.f, -50.f, -50.f);
-		glVertex3f( 50.f, -50.f,  50.f);
-
-		// Bottom
-		glColor3f(0.f, 0.f, 1.f);
-		glVertex3f(-50.f, 50.f,  50.f);
-		glVertex3f( 50.f, 50.f,  50.f);
-		glVertex3f( 50.f, 50.f, -50.f);
-		glVertex3f(-50.f, 50.f, -50.f);
+		glColor3f(1.f, 1.f, 1.f);
+		glTexCoord2d(1.0,0.0);
+		glVertex3f(-1.f, -1.f, 0.f);
+		glTexCoord2d(1.0,1.0);
+		glVertex3f(-1.f,  1.f, 0.f);
+		glTexCoord2d(0.0,1.0);
+		glVertex3f( 1.f,  1.f, 0.f);
+		glTexCoord2d(0.0,0.0);
+		glVertex3f( 1.f, -1.f, 0.f);
 	glEnd();
 
 	glPopMatrix();
 
 	glFinish();
 
-	glAccum(GL_ACCUM, 1.f);
-	glAccum(GL_RETURN, 1.f);
-	glAccum(GL_MULT, 0.95f);
+	//glAccum(GL_ACCUM, 1.f);
+	//glAccum(GL_RETURN, 1.f);
+	//glAccum(GL_MULT, 0.95f);
 
 	SwapBuffers(wglGetCurrentDC());
 

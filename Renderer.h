@@ -17,4 +17,8 @@ public:
 protected:
 	HDC hdc;
 	RECT& rc;
+
+	static_api_ptr_t<playlist_manager> playlist;
+	album_art_manager_instance_ptr art_loader;
+	album_art_data_ptr art;
 };

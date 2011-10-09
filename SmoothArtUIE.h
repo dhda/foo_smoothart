@@ -2,7 +2,7 @@
 #include "ArtWindow.h"
 
 
-struct SmoothArtUIE : ui_element, ui_element_instance, ArtWindow
+struct SmoothArtUIE : ui_element_instance, ArtWindow
 {
 public:
 	SmoothArtUIE(ui_element_config::ptr cfg, ui_element_instance_callback_ptr callback);

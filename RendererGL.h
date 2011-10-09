@@ -16,11 +16,18 @@ public:
 	void Recreate(HDC n_hdc, RECT& n_rc);
 
 	double getFrameTime();
+
+	static bool isInitialized() { return RendererGL::initialized; }
 	
 private:
 	HGLRC hRC;
 
+	GLuint image_texture, prev_image_texture;
+
 	static bool glew;
+	static bool initialized;
+	static bool anisotropy;
+	GLfloat maxAnisotropy;
 
 	bool SetupPixelFormat();
 	static bool SetupPixelFormatFallback(HDC dc);

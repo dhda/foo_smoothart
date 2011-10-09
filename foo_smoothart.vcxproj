@@ -20,7 +20,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <CLRSupport>true</CLRSupport>
+    <CLRSupport>false</CLRSupport>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -42,25 +42,36 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IntDir>$(Configuration)\Temp\</IntDir>
+    <IncludePath>..\ATLHelpers\atlhelpers;D:\Libraries\DevIL\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\Libraries\DevIL\lib\unicode;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IntDir>$(Configuration)\Temp\</IntDir>
-    <IncludePath>..\ATLHelpers\atlhelpers;$(IncludePath)</IncludePath>
+    <IncludePath>..\ATLHelpers\atlhelpers;D:\Libraries\DevIL\include;$(IncludePath)</IncludePath>
     <IgnoreImportLibrary>false</IgnoreImportLibrary>
+    <LibraryPath>D:\Libraries\DevIL\lib\unicode;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;FOO_INPUT_RAW_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsManaged>false</CompileAsManaged>
+      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
+      <AdditionalDependencies>../shared/shared.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Windows</SubSystem>
+      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y $(SolutionDir)$(Configuration)\$(ProjectName).dll D:\Projects\foobar2000_dev\user-components\foo_smoothart\$(ProjectName).dll</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -76,7 +87,7 @@
       <CallingConvention>Cdecl</CallingConvention>
     </ClCompile>
     <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
       <AdditionalDependencies>../shared/shared.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -89,7 +100,7 @@
       </DataExecutionPrevention>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y $(SolutionDir)$(Configuration)\$(ProjectName).dll D:\Music\foobar2000\components\$(ProjectName).dll</Command>
+      <Command>copy /Y $(SolutionDir)$(Configuration)\$(ProjectName).dll D:\Projects\foobar2000_dev\user-components\foo_smoothart\$(ProjectName).dll</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

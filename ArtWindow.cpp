@@ -44,7 +44,7 @@ LRESULT ArtWindow::OnCreate(LPCREATESTRUCT)
 		DeleteTimerQueue(TimerQueue);
 
 	TimerQueue = CreateTimerQueue();
-	CreateTimerQueueTimer(&RepaintTimer, TimerQueue, (WAITORTIMERCALLBACK)TimerCallback, this, 10, 1, WT_EXECUTEDEFAULT);
+	CreateTimerQueueTimer(&RepaintTimer, TimerQueue, (WAITORTIMERCALLBACK)TimerCallback, this, 10, 5, WT_EXECUTEDEFAULT);
 
 	return 0;
 }

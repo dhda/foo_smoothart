@@ -5,6 +5,9 @@ SmoothArtUIE::SmoothArtUIE(ui_element_config::ptr cfg, ui_element_instance_callb
 	: m_callback(callback)
 {
 	set_configuration(cfg);
+
+	if (!RendererGL::isInitialized())
+		RendererGL::Initialize();
 }
 
 SmoothArtUIE::~SmoothArtUIE() {}
