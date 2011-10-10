@@ -5,7 +5,8 @@
 
 enum {TIMER_REPAINT};
 
-struct ArtWindow : public CWindowImpl<ArtWindow> {
+struct ArtWindow : public CWindowImpl<ArtWindow>
+{
 public:
 	//ArtWindow(ui_element_config::ptr,ui_element_instance_callback_ptr p_callback);
 	ArtWindow();
@@ -24,6 +25,9 @@ public:
 		MSG_WM_TIMER(OnTimer)
 	END_MSG_MAP()
 
+protected:
+	Renderer * renderer;
+
 private:
 	LRESULT OnCreate(LPCREATESTRUCT);
 	void OnDestroy();
@@ -34,6 +38,4 @@ private:
 
 	HANDLE TimerQueue;
 	HANDLE RepaintTimer;
-
-	Renderer * renderer;
 };

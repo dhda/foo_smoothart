@@ -2,7 +2,7 @@
 #include "ArtWindow.h"
 
 
-struct SmoothArtUIE : ui_element_instance, ArtWindow
+struct SmoothArtUIE : ui_element_instance, ArtWindow, playlist_callback_impl_base
 {
 public:
 	SmoothArtUIE(ui_element_config::ptr cfg, ui_element_instance_callback_ptr callback);
@@ -21,10 +21,17 @@ public:
 
 	void notify(const GUID & what, t_size param1, const void * param2, t_size param2size);
 
+
+	// Callbacks
+	void on_items_selection_change(t_size p_playlist, const bit_array & p_affected, const bit_array & p_state);
+
 protected:
 	static const GUID s_guid;
 	const ui_element_instance_callback_ptr m_callback;
 
 private:
 	ui_element_config::ptr configuration;
+
+	static_api_ptr_t<playlist_manager> playlist;
+	album_art_manager_instance_ptr art_loader;
 };

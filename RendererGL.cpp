@@ -9,9 +9,6 @@
 RendererGL::RendererGL(HDC hdc, RECT& rc) : Renderer(hdc, rc)
 {
 	Recreate(hdc, rc);
-	
-	art_loader = static_api_ptr_t<album_art_manager>()->instantiate();
-	playlist = static_api_ptr_t<playlist_manager>();
 
 	image_texture = 0;
 	prev_image_texture = 0;
@@ -235,55 +232,36 @@ void RendererGL::Resize(int w, int h)
 	glLoadIdentity();
 }
 
+void RendererGL::LoadArt(album_art_data_ptr art)
+{
+	ILuint devilID, devilError = IL_NO_ERROR;
+
+	ilGenImages(1, &devilID);
+	ilBindImage(devilID);
+
+	ilLoadL(IL_TYPE_UNKNOWN, art->get_ptr(), art->get_size());
+	if (devilError != IL_NO_ERROR)
+		console::print("Smooth Album Art: DevIL error");
+
+	console::formatter() << "Smooth Album Art: New album art (" << ilGetInteger(IL_IMAGE_WIDTH) << "x" << ilGetInteger(IL_IMAGE_HEIGHT) << ")";
+
+	ilutRenderer(ILUT_OPENGL);
+	prev_image_texture = image_texture;
+	image_texture = ilutGLBindTexImage();
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -0.5f);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	//glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
+	glGenerateMipmap(GL_TEXTURE_2D);
+}
+
 void RendererGL::Render(CDC dc)
 {
 	wglMakeCurrent(dc, hRC);
-
-	try
-	{
-		metadb_handle_ptr meta_handle;
-		t_size playing_list, playing_item;
-		if (playlist->get_playing_item_location(&playing_list, &playing_item))
-		{
-			if (playlist->playlist_get_item_handle(meta_handle, playing_list, playing_item))
-			{
-					foobar2000_io::abort_callback_impl abort;
-					if (art_loader->open(meta_handle->get_path(), abort))
-					{
-						art = art_loader->query(album_art_ids::cover_front, abort);
-						console::print("Smooth Album Art: New album art!");
-
-						ILuint devilID, devilError = IL_NO_ERROR;
-
-						ilGenImages(1, &devilID);
-						ilBindImage(devilID);
-
-						ilLoadL(IL_TYPE_UNKNOWN, art->get_ptr(), art->get_size());
-						if (devilError != IL_NO_ERROR)
-							console::print("Smooth Album Art: DevIL error");
-
-						ilutRenderer(ILUT_OPENGL);
-						prev_image_texture = image_texture;
-						image_texture = ilutGLBindTexImage();
-
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
-						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -0.5f);
-						glGenerateMipmap(GL_TEXTURE_2D);
-					}
-			}
-
-		}
-	}
-	catch (const exception_album_art_not_found & e)
-	{
-		console::print(e.what());
-	}
-	catch (const pfc::exception & e)
-	{
-		console::print(e.what());
-	}
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -297,7 +275,7 @@ void RendererGL::Render(CDC dc)
 	QueryPerformanceCounter(&tick);
 
 	//glRotatef((GLfloat)tick.QuadPart / 20000.f, 1.f, 0.f, 0.f);
-	//glRotatef(sin((float)tick.QuadPart / 6000000.f) * 130.f, 0.f, 1.f, 0.f);
+	//glRotatef(sin((float)tick.QuadPart / 5000000.f) * 130.f, 0.f, 1.f, 0.f);
 	//glRotatef((GLfloat)tick.QuadPart / 50000.f, 0.f, 0.f, 1.f);
 
 	glBindTexture(GL_TEXTURE_2D, image_texture);

@@ -15,6 +15,8 @@ public:
 	void Destroy();
 	void Recreate(HDC n_hdc, RECT& n_rc);
 
+	void LoadArt(album_art_data_ptr art);
+
 	double getFrameTime();
 
 	static bool isInitialized() { return RendererGL::initialized; }
