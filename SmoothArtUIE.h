@@ -2,7 +2,7 @@
 #include "ArtWindow.h"
 
 
-struct SmoothArtUIE : ui_element_instance, ArtWindow, playlist_callback_impl_base
+struct SmoothArtUIE : ui_element_instance, ArtWindow, play_callback_impl_base, playlist_callback_impl_base
 {
 public:
 	SmoothArtUIE(ui_element_config::ptr cfg, ui_element_instance_callback_ptr callback);

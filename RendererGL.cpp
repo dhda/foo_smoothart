@@ -234,29 +234,54 @@ void RendererGL::Resize(int w, int h)
 
 void RendererGL::LoadArt(album_art_data_ptr art)
 {
-	ILuint devilID, devilError = IL_NO_ERROR;
+	ILuint devilImg, devilError = IL_NO_ERROR;
 
-	ilGenImages(1, &devilID);
-	ilBindImage(devilID);
+	ilGenImages(1, &devilImg);
+	ilBindImage(devilImg);
 
 	ilLoadL(IL_TYPE_UNKNOWN, art->get_ptr(), art->get_size());
 	if (devilError != IL_NO_ERROR)
 		console::print("Smooth Album Art: DevIL error");
 
-	console::formatter() << "Smooth Album Art: New album art (" << ilGetInteger(IL_IMAGE_WIDTH) << "x" << ilGetInteger(IL_IMAGE_HEIGHT) << ")";
+	GLsizei img_width = ilGetInteger(IL_IMAGE_WIDTH);
+	GLsizei img_height = ilGetInteger(IL_IMAGE_HEIGHT);
+
+	console::formatter() << "Smooth Album Art: New album art (" << img_width << "x" << img_height << ")";
 
 	ilutRenderer(ILUT_OPENGL);
-	prev_image_texture = image_texture;
-	image_texture = ilutGLBindTexImage();
+	//image_texture = ilutGLBindTexImage();
+
+	GLuint tex_size;
+	// Make a square texture
+	if (img_width > img_height)
+		tex_size = img_width;
+	else
+		tex_size = img_height;
+
+	GLuint tex;
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex_size, tex_size, 0, ilGetInteger(IL_IMAGE_FORMAT), ilGetInteger(IL_IMAGE_TYPE), NULL);
+	glBindTexture(GL_TEXTURE_2D, tex);
+
+	GLint img_xoffset = (tex_size - img_width) / 2;
+	GLint img_yoffset = (tex_size - img_height) / 2;
+	glTexSubImage2D(GL_TEXTURE_2D, 0, img_xoffset, img_yoffset, img_width, img_height, ilGetInteger(IL_IMAGE_FORMAT), ilGetInteger(IL_IMAGE_TYPE), ilGetData());
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -0.5f);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -1.0f);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	//glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
 	glGenerateMipmap(GL_TEXTURE_2D);
+
+	ilDeleteImage(devilImg);
+
+	glDeleteTextures(1, &prev_image_texture);
+	prev_image_texture = image_texture;
+	image_texture = tex;
 }
 
 void RendererGL::Render(CDC dc)
@@ -282,13 +307,13 @@ void RendererGL::Render(CDC dc)
 	glBegin(GL_QUADS);
 		// Front
 		glColor3f(1.f, 1.f, 1.f);
-		glTexCoord2d(1.0,0.0);
-		glVertex3f( 1.f, -1.f, 0.f);
 		glTexCoord2d(1.0,1.0);
+		glVertex3f( 1.f, -1.f, 0.f);
+		glTexCoord2d(1.0,0.0);
 		glVertex3f( 1.f,  1.f, 0.f);
-		glTexCoord2d(0.0,1.0);
-		glVertex3f(-1.f,  1.f, 0.f);
 		glTexCoord2d(0.0,0.0);
+		glVertex3f(-1.f,  1.f, 0.f);
+		glTexCoord2d(0.0,1.0);
 		glVertex3f(-1.f, -1.f, 0.f);
 
 		//// Left
@@ -324,13 +349,13 @@ void RendererGL::Render(CDC dc)
 	glBegin(GL_QUADS);
 		// Back
 		glColor3f(1.f, 1.f, 1.f);
-		glTexCoord2d(1.0,0.0);
-		glVertex3f(-1.f, -1.f, 0.f);
 		glTexCoord2d(1.0,1.0);
+		glVertex3f(-1.f, -1.f, 0.f);
+		glTexCoord2d(1.0,0.0);
 		glVertex3f(-1.f,  1.f, 0.f);
-		glTexCoord2d(0.0,1.0);
-		glVertex3f( 1.f,  1.f, 0.f);
 		glTexCoord2d(0.0,0.0);
+		glVertex3f( 1.f,  1.f, 0.f);
+		glTexCoord2d(0.0,1.0);
 		glVertex3f( 1.f, -1.f, 0.f);
 	glEnd();
 
