@@ -16,9 +16,7 @@ RendererGL::RendererGL(HDC hdc, RECT& rc) : Renderer(hdc, rc)
 
 	fov = 40.0f;
 
-	image_width = 1.0f;
-	image_height = 1.0f;
-
+	image_aspect = 1.0f;
 }
 
 RendererGL::~RendererGL()
@@ -249,18 +247,15 @@ void RendererGL::Resize(int w, int h)
 	//	glFrustum(-1.0f, 1.0f, -v, v, 12.0f, 12.0f/tan(pi*40.0f/180.0f));
 	//}
 
-	GLfloat aspect = (GLfloat)w / (GLfloat)h;
-	//GLfloat aspect = unit_width / unit_height;
-
-	GLfloat fov_scaled = fov;
+	aspect = (GLfloat)w / (GLfloat)h;
 
 	if (w > h)
 	{
-		gluPerspective(fov_scaled, aspect, 0.1f, 20.0f);
+		gluPerspective(fov, aspect, 0.1f, 20.0f);
 	}
 	else
 	{
-		gluPerspective(360.0f/pi*atan(tan(fov_scaled*pi/360.0f)/aspect), aspect, 0.1f, 20.0f);
+		gluPerspective(360.0f/pi*atan(tan(fov*pi/360.0f)/aspect), aspect, 0.1f, 20.0f);
 	}
 
 	glMatrixMode(GL_MODELVIEW);
@@ -280,8 +275,8 @@ void RendererGL::LoadArt(album_art_data_ptr art)
 
 	GLsizei img_width = ilGetInteger(IL_IMAGE_WIDTH);
 	GLsizei img_height = ilGetInteger(IL_IMAGE_HEIGHT);
-	image_width = img_width;
-	image_height = img_height;
+	
+	image_aspect = (GLfloat)img_width / (GLfloat)img_height;
 
 	console::formatter() << "Smooth Album Art: New album art (" << img_width << "x" << img_height << ")";
 
@@ -344,7 +339,8 @@ void RendererGL::Render(CDC dc)
 	//glRotatef((GLfloat)tick.QuadPart / 50000.f, 0.f, 0.f, 1.f);
 
 	//TODO: scale based on actual image width, not texture scale (SHIT!!)
-	GLdouble rot = 120.0f*pi/180.0f * sin((float)tick.QuadPart / 2000000.f);
+	//GLdouble rot = 120.0f*pi/180.0f * sin((float)tick.QuadPart / 2000000.f);
+	GLdouble rot = pi/2.0f;
 	GLdouble dist = 1.0f/tan(fov*pi/360.0f);
 	//gluLookAt(dist*cos((float)tick.QuadPart / 3000000.f), 0.0f, -5.0f-dist + dist*sin((float)tick.QuadPart / 3000000.f), 0.0f, 0.0f, -5.0f, 0.0f, 1.0f, 0.0f);
 	//gluLookAt(dist*cos(45.0f*pi/180.0f), 0.0f, -5.0f+dist + dist*sin(45.0f*pi/180.0f), 0.0f, 0.0f, -5.0f, 0.0f, 1.0f, 0.0f);
@@ -356,20 +352,34 @@ void RendererGL::Render(CDC dc)
 	//gluLookAt(dist*cos((float)tick.QuadPart / 3000000.f), 0.0f, dist*sin((float)tick.QuadPart / 3000000.f), 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 	gluLookAt(dist*cos(rot), 0.0f, dist*sin(rot), 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
-	//GLfloat hsize = tan(pi*40.0f/360.0f)*back;
+	GLfloat quad_size = 1.0f;
+	if (aspect > 1.0f && image_aspect > 1.0f)
+	{
+		if (aspect > image_aspect)
+			quad_size = image_aspect;
+		else
+			quad_size = aspect;
+	}
+	else if (aspect < 1.0f && image_aspect < 1.0f)
+	{
+		if (aspect < image_aspect)
+			quad_size = 1.0f/image_aspect;
+		else
+			quad_size = 1.0f/aspect;
+	}
 
 	glBindTexture(GL_TEXTURE_2D, image_texture);
 	glBegin(GL_QUADS);
 		// Front
-		glColor3f(1.f, 1.f, 1.f);
-		glTexCoord2d(1.0,1.0);
-		glVertex3f(1.0f, -1.0f, 0.0f);
-		glTexCoord2d(1.0,0.0);
-		glVertex3f(1.0f, 1.0f, 0.0f);
-		glTexCoord2d(0.0,0.0);
-		glVertex3f(-1.0f, 1.0f, 0.0f);
-		glTexCoord2d(0.0,1.0);
-		glVertex3f(-1.0f, -1.0f, 0.0f);
+		glColor3f(1.0f, 1.0f, 1.0f);
+		glTexCoord2d(1.0f, 1.0f);
+		glVertex3f( quad_size, -quad_size, 0.0f);
+		glTexCoord2d(1.0f, 0.0f);
+		glVertex3f( quad_size,  quad_size, 0.0f);
+		glTexCoord2d(0.0f, 0.0f);
+		glVertex3f(-quad_size,  quad_size, 0.0f);
+		glTexCoord2d(0.0f, 1.0f);
+		glVertex3f(-quad_size, -quad_size, 0.0f);
 
 		//// Left
 		//glColor3f(0.f, 1.f, 0.f);
@@ -403,15 +413,15 @@ void RendererGL::Render(CDC dc)
 	glBindTexture(GL_TEXTURE_2D, prev_image_texture);
 	glBegin(GL_QUADS);
 		// Back
-		glColor3f(1.f, 1.f, 1.f);
-		glTexCoord2d(1.0,1.0);
+		glColor3f(1.0f, 1.0f, 1.0f);
+		glTexCoord2d(1.0f, 1.0f);
 		glVertex3f(-1.0f, -1.0f, 0.0f);
-		glTexCoord2d(1.0,0.0);
-		glVertex3f(-1.0f, 1.0f, 0.0f);
-		glTexCoord2d(0.0,0.0);
-		glVertex3f(1.0f, 1.0f, 0.0f);
-		glTexCoord2d(0.0,1.0);
-		glVertex3f(1.0f, -1.0f, 0.0f);
+		glTexCoord2d(1.0f, 0.0f);
+		glVertex3f(-1.0f,  1.0f, 0.0f);
+		glTexCoord2d(0.0f, 0.0f);
+		glVertex3f( 1.0f,  1.0f, 0.0f);
+		glTexCoord2d(0.0f, 1.0f);
+		glVertex3f( 1.0f, -1.0f, 0.0f);
 	glEnd();
 
 	glPopMatrix();

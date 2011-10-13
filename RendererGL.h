@@ -25,7 +25,7 @@ private:
 	HGLRC hRC;
 
 	GLuint image_texture, prev_image_texture;
-	int image_width, image_height;
+	GLfloat image_aspect;
 
 	// OpenGL settings
 	static bool glew;
@@ -35,6 +35,7 @@ private:
 
 	// Display settings
 	GLfloat fov;
+	GLfloat aspect;
 
 	bool SetupPixelFormat();
 	static bool SetupPixelFormatFallback(HDC dc);
