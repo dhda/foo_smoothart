@@ -5,6 +5,7 @@
 #define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
 
+double pi = atan((double)1)*4;
 
 RendererGL::RendererGL(HDC hdc, RECT& rc) : Renderer(hdc, rc)
 {
@@ -12,6 +13,12 @@ RendererGL::RendererGL(HDC hdc, RECT& rc) : Renderer(hdc, rc)
 
 	image_texture = 0;
 	prev_image_texture = 0;
+
+	fov = 40.0f;
+
+	image_width = 1.0f;
+	image_height = 1.0f;
+
 }
 
 RendererGL::~RendererGL()
@@ -186,6 +193,8 @@ void RendererGL::CreateContext()
 
 	glEnable(GL_MULTISAMPLE_ARB);
 
+	glEnable(GL_TEXTURE_2D);
+
 	glClearColor(0.0f, 0.0f, 0.0f, 10.0f);
 
 	glHint(GL_GENERATE_MIPMAP_HINT, GL_NICEST);
@@ -220,13 +229,39 @@ void RendererGL::Resize(int w, int h)
 	if (h <= 0)
 		h = 1;
 
-	GLfloat aspect = (GLfloat)w / (GLfloat)h;
-
 	glViewport(0, 0, w, h);
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(40.0f, aspect, 0.1f, 1000.0f);
+
+	//if (w > h)
+	//{
+	//	GLfloat half = w*0.5f;
+	//	GLfloat aspect = (GLfloat)w / (GLfloat)h;
+	//	GLfloat v = (1.0f + half*aspect) / half;
+	//	glFrustum(-v, v, -1.0f, 1.0f, 12.0f, 12.0f/tan(pi*40.0f/180.0f));
+	//}
+	//else
+	//{
+	//	GLfloat half = h*0.5f;
+	//	GLfloat aspect = (GLfloat)h / (GLfloat)w;
+	//	GLfloat v = (1.0f + half*aspect) / half;
+	//	glFrustum(-1.0f, 1.0f, -v, v, 12.0f, 12.0f/tan(pi*40.0f/180.0f));
+	//}
+
+	GLfloat aspect = (GLfloat)w / (GLfloat)h;
+	//GLfloat aspect = unit_width / unit_height;
+
+	GLfloat fov_scaled = fov;
+
+	if (w > h)
+	{
+		gluPerspective(fov_scaled, aspect, 0.1f, 20.0f);
+	}
+	else
+	{
+		gluPerspective(360.0f/pi*atan(tan(fov_scaled*pi/360.0f)/aspect), aspect, 0.1f, 20.0f);
+	}
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -245,6 +280,8 @@ void RendererGL::LoadArt(album_art_data_ptr art)
 
 	GLsizei img_width = ilGetInteger(IL_IMAGE_WIDTH);
 	GLsizei img_height = ilGetInteger(IL_IMAGE_HEIGHT);
+	image_width = img_width;
+	image_height = img_height;
 
 	console::formatter() << "Smooth Album Art: New album art (" << img_width << "x" << img_height << ")";
 
@@ -262,7 +299,6 @@ void RendererGL::LoadArt(album_art_data_ptr art)
 	glGenTextures(1, &tex);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex_size, tex_size, 0, ilGetInteger(IL_IMAGE_FORMAT), ilGetInteger(IL_IMAGE_TYPE), NULL);
-	glBindTexture(GL_TEXTURE_2D, tex);
 
 	GLint img_xoffset = (tex_size - img_width) / 2;
 	GLint img_yoffset = (tex_size - img_height) / 2;
@@ -278,8 +314,11 @@ void RendererGL::LoadArt(album_art_data_ptr art)
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	ilDeleteImage(devilImg);
-
 	glDeleteTextures(1, &prev_image_texture);
+	glDeleteBuffers(1, &tex);
+	glDeleteBuffers(1, &prev_image_texture);
+	glDeleteBuffers(1, &image_texture);
+
 	prev_image_texture = image_texture;
 	image_texture = tex;
 }
@@ -292,29 +331,45 @@ void RendererGL::Render(CDC dc)
 
 	glPushMatrix();
 
-	glEnable(GL_TEXTURE_2D);
+	//GLfloat back = 12.0f + 0.5f*(12.0f/tan(pi*40.0f/180.0f) - 12.0f);
 
-	glTranslatef(0.f, 0.f, -3.f);
+	//glTranslatef(0.0f, 0.0f, -back);
 
 	LARGE_INTEGER tick;
 	QueryPerformanceCounter(&tick);
 
 	//glRotatef((GLfloat)tick.QuadPart / 20000.f, 1.f, 0.f, 0.f);
+	//glTranslatef(0.0f, 0.0f, 5.0f);
 	//glRotatef(sin((float)tick.QuadPart / 5000000.f) * 130.f, 0.f, 1.f, 0.f);
 	//glRotatef((GLfloat)tick.QuadPart / 50000.f, 0.f, 0.f, 1.f);
+
+	//TODO: scale based on actual image width, not texture scale (SHIT!!)
+	GLdouble rot = 120.0f*pi/180.0f * sin((float)tick.QuadPart / 2000000.f);
+	GLdouble dist = 1.0f/tan(fov*pi/360.0f);
+	//gluLookAt(dist*cos((float)tick.QuadPart / 3000000.f), 0.0f, -5.0f-dist + dist*sin((float)tick.QuadPart / 3000000.f), 0.0f, 0.0f, -5.0f, 0.0f, 1.0f, 0.0f);
+	//gluLookAt(dist*cos(45.0f*pi/180.0f), 0.0f, -5.0f+dist + dist*sin(45.0f*pi/180.0f), 0.0f, 0.0f, -5.0f, 0.0f, 1.0f, 0.0f);
+	//gluLookAt(0.0f, 0.0f, 0.0f,
+	//          0.0f, 0.0f, -5.0f,
+	//		    0.0f, 1.0f, 0.0f);
+	//glRotatef(sin((float)tick.QuadPart / 5000000.f) * 130.f, 0.f, 1.f, 0.f);;
+
+	//gluLookAt(dist*cos((float)tick.QuadPart / 3000000.f), 0.0f, dist*sin((float)tick.QuadPart / 3000000.f), 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+	gluLookAt(dist*cos(rot), 0.0f, dist*sin(rot), 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+
+	//GLfloat hsize = tan(pi*40.0f/360.0f)*back;
 
 	glBindTexture(GL_TEXTURE_2D, image_texture);
 	glBegin(GL_QUADS);
 		// Front
 		glColor3f(1.f, 1.f, 1.f);
 		glTexCoord2d(1.0,1.0);
-		glVertex3f( 1.f, -1.f, 0.f);
+		glVertex3f(1.0f, -1.0f, 0.0f);
 		glTexCoord2d(1.0,0.0);
-		glVertex3f( 1.f,  1.f, 0.f);
+		glVertex3f(1.0f, 1.0f, 0.0f);
 		glTexCoord2d(0.0,0.0);
-		glVertex3f(-1.f,  1.f, 0.f);
+		glVertex3f(-1.0f, 1.0f, 0.0f);
 		glTexCoord2d(0.0,1.0);
-		glVertex3f(-1.f, -1.f, 0.f);
+		glVertex3f(-1.0f, -1.0f, 0.0f);
 
 		//// Left
 		//glColor3f(0.f, 1.f, 0.f);
@@ -350,13 +405,13 @@ void RendererGL::Render(CDC dc)
 		// Back
 		glColor3f(1.f, 1.f, 1.f);
 		glTexCoord2d(1.0,1.0);
-		glVertex3f(-1.f, -1.f, 0.f);
+		glVertex3f(-1.0f, -1.0f, 0.0f);
 		glTexCoord2d(1.0,0.0);
-		glVertex3f(-1.f,  1.f, 0.f);
+		glVertex3f(-1.0f, 1.0f, 0.0f);
 		glTexCoord2d(0.0,0.0);
-		glVertex3f( 1.f,  1.f, 0.f);
+		glVertex3f(1.0f, 1.0f, 0.0f);
 		glTexCoord2d(0.0,1.0);
-		glVertex3f( 1.f, -1.f, 0.f);
+		glVertex3f(1.0f, -1.0f, 0.0f);
 	glEnd();
 
 	glPopMatrix();

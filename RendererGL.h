@@ -25,11 +25,16 @@ private:
 	HGLRC hRC;
 
 	GLuint image_texture, prev_image_texture;
+	int image_width, image_height;
 
+	// OpenGL settings
 	static bool glew;
 	static bool initialized;
 	static bool anisotropy;
 	GLfloat maxAnisotropy;
+
+	// Display settings
+	GLfloat fov;
 
 	bool SetupPixelFormat();
 	static bool SetupPixelFormatFallback(HDC dc);
