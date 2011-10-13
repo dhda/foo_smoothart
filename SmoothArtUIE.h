@@ -24,6 +24,8 @@ public:
 
 	// Callbacks
 	void on_items_selection_change(t_size p_playlist, const bit_array & p_affected, const bit_array & p_state);
+	void on_playback_new_track(metadb_handle_ptr p_track);
+	void on_playback_stop(play_control::t_stop_reason p_reason);
 
 protected:
 	static const GUID s_guid;
@@ -33,5 +35,9 @@ private:
 	ui_element_config::ptr configuration;
 
 	static_api_ptr_t<playlist_manager> playlist;
+	static_api_ptr_t<playback_control> playback;
 	album_art_manager_instance_ptr art_loader;
+
+	void GetArt(const char * path);
+	void GetSelectedArt(t_size p_playlist);
 };

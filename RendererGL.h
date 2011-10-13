@@ -31,7 +31,7 @@ private:
 	static bool glew;
 	static bool initialized;
 	static bool anisotropy;
-	GLfloat maxAnisotropy;
+	GLfloat max_anisotropy;
 
 	// Display settings
 	GLfloat fov;

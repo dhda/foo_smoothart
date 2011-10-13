@@ -176,9 +176,9 @@ void RendererGL::CreateContext()
 	hRC = wglCreateContext(hdc);
 	wglMakeCurrent(hdc, hRC);
 
-	maxAnisotropy = 1.0f;
-	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
-	console::formatter() << "Smooth Album Art: Using anisotropy level " << maxAnisotropy;
+	max_anisotropy = 1.0f;
+	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_anisotropy);
+	console::formatter() << "Smooth Album Art: Using anisotropy level " << max_anisotropy;
 
 	int width = rc.right - rc.left;
 	int height = rc.bottom - rc.top;
@@ -301,7 +301,7 @@ void RendererGL::LoadArt(album_art_data_ptr art)
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -1.0f);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
@@ -338,7 +338,6 @@ void RendererGL::Render(CDC dc)
 	//glRotatef(sin((float)tick.QuadPart / 5000000.f) * 130.f, 0.f, 1.f, 0.f);
 	//glRotatef((GLfloat)tick.QuadPart / 50000.f, 0.f, 0.f, 1.f);
 
-	//TODO: scale based on actual image width, not texture scale (SHIT!!)
 	//GLdouble rot = 120.0f*pi/180.0f * sin((float)tick.QuadPart / 2000000.f);
 	GLdouble rot = pi/2.0f;
 	GLdouble dist = 1.0f/tan(fov*pi/360.0f);
